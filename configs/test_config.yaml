@@ -1,0 +1,41 @@
+# info for run
+code_root: null
+# log to weights and biases
+integrations:
+  wandb:
+    active: False
+    project: "sketch2face"
+
+iterator: iterator.cycle_wgan.Cycle_WGAN
+model: models.style_transfer_model.Style_Transfer_Model
+random_seed: 10
+explanation: "Testing"
+debug_log_level: True
+
+## Iterator info ##
+# specify the batchsize for training
+batch_size: 16
+# specify the length of training
+# in either "num_epochs" or "num_steps" 
+num_steps: 5000
+
+model_config:
+  min_channels: 64
+  max_channels: 512
+  in_channels: 3
+  out_channels: 3
+  in_size: &IN_SIZE 64
+  block_activation: "relu"
+  final_activation: "tanh"
+  batch_norm: False
+  drop_rate: None
+  bias: False
+
+data:
+  art_path: ""
+  photo_path: ""
+
+  transforms:
+    in_size: *IN_SIZE
+    crop: "center" #or random (yet to be implemented)
+    mirror: True

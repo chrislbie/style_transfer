@@ -1,20 +1,20 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from edflow import get_logger
-from torch.autograd import Variable
 import sys
 import os
+from edflow import get_logger
+
 
 try:
-    from models.modules import Transpose2dBlock, ExtraConvBlock, Conv2dBlock
+    from models.modules import Transpose2dBlock, Conv2dBlock
     from models.utils import style_mean_std, conditional_intance_normalization
-except:
+except ModuleNotFoundError:
     cur_path = os.path.dirname(os.path.abspath(__file__))
     cur_path = cur_path.replace("\\", "/")
     path = cur_path[:cur_path.rfind('/')]
     sys.path.append(path)
-    from models.modules import Transpose2dBlock, ExtraConvBlock, Conv2dBlock
+    from models.modules import Transpose2dBlock, Conv2dBlock
     from models.utils import style_mean_std, conditional_intance_normalization
 
 class Style_Transfer_Model(nn.Module):
@@ -23,6 +23,7 @@ class Style_Transfer_Model(nn.Module):
                 max_channels,
                 in_channels,
                 out_channels,
+                in_size,
                 block_activation=nn.ReLU(),
                 final_activation=nn.Tanh(),
                 batch_norm=False,
@@ -49,6 +50,8 @@ class Style_Transfer_Model(nn.Module):
         self.s_enc = Style_Encoder(min_channels, max_channels, in_channels, block_activation, batch_norm, drop_rate, bias)
         self.dec = Decoder(min_channels, max_channels, out_channels, block_activation, final_activation, batch_norm, drop_rate, bias)
         self.inst_norm = nn.InstanceNorm2d(max_channels, momentum=0.)
+
+        self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, block_activation=nn.LeakyReLU(), batch_norm, drop_rate, bias)
         
         self.logger.info("initialized.")
 
@@ -144,7 +147,7 @@ class Style_Encoder(nn.Module):
 
     
 class Decoder(nn.Module):
-    """This decoder is part of the style tranfer model."""
+    """This is the decoder part of the style tranfer model."""
 
     def __init__(self,
                  min_channels,
@@ -188,4 +191,53 @@ class Decoder(nn.Module):
     def forward(self, x):
         """This function creates reconstructed image from style and content."""
         return self.main(x)
+
+class Discriminator(nn.Module):
+    """This is the discriminator of the style transfer model"""
+
+    def __init__(self,
+                out_channels,
+                out_size,
+                min_channels,
+                max_channels,
+                block_activation=nn.LeakyReLU(),
+                batch_norm=False,
+                drop_rate=None,
+                bias=True):
+        """This is the constructor for the discriminator of the style transfer model
+
+        Args:
+            out_channels (int): Channel dimension of the output image.
+            out_size (int): Size of the output image.
+            min_channels (int): Channel dimension before the last convolution is applied.
+            max_channels (int): Channel dimension after the first convolution is applied. The channel dimension is cut in half after every convolutional block.
+            block_activation (torch.nn module, optional): Activation function of the convolution. Defaults to nn.LeakyReLU().
+            batch_norm (bool, optional): Normalize over the batch size. Defaults to False.
+            drop_rate (float, optional): Dropout rate for the convolutions. Defaults to None.
+            bias (bool, optional): If the convolutions use a bias. Defaults to True.
+        """
+        super(Discriminator, self).__init__()
+        self.logger = get_logger("Discrimnator")
+        layers  = []
+        channel_numbers = [out_channels] + list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels+1)).astype(np.int))
+        linear_nodes = int(out_size**2 * (1/2)**(len(channel_numbers)-2))
+        print(linear_nodes)
+        for i in range(len(channel_numbers)-1):
+            in_ch = channel_numbers[i]
+            out_ch = channel_numbers[i+1]
+            # add convolution
+            layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias))
+        layers.append(nn.Flatten())
+        layers.append(nn.Linear(linear_nodes, 1))
+        layers.append(nn.Sigmoid())
+
+        # save all blocks to the class instance
+        self.main = nn.Sequential(*layers)
+        self.logger.debug("Decoder channel sizes: {}".format(channel_numbers + [out_channels]))
+        self.logger.debug("Linear layer size: {}".format(linear_nodes))
+    
+    def forward(self, x):
+        return self.main(x)
+
+
 
