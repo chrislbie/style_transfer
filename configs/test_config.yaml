@@ -14,7 +14,7 @@ debug_log_level: True
 
 ## Iterator info ##
 # specify the batchsize for training
-batch_size: 16
+batch_size: 1
 # specify the length of training
 # in either "num_epochs" or "num_steps" 
 num_steps: 5000
@@ -24,7 +24,7 @@ model_config:
   max_channels: 512
   in_channels: 3
   out_channels: 3
-  in_size: &IN_SIZE 64
+  in_size: &IN_SIZE 128
   block_activation: "relu"
   final_activation: "tanh"
   batch_norm: False
@@ -32,10 +32,13 @@ model_config:
   bias: False
 
 data:
-  art_path: ""
-  photo_path: ""
+  style_path: "C:\\Users\\user\\Desktop\\Zeug\\Style transfer\\data\\art\\selection"
+  content_path: "C:\\Users\\user\\Desktop\\Zeug\\Style transfer\\data\\landscapes"
+  validation_split: 0.1
 
   transforms:
     in_size: *IN_SIZE
-    crop: "center" #or random (yet to be implemented)
+    crop: 
+      type: "center" #or random or max_random (yet to be implemented)
+      size: 512
     mirror: True

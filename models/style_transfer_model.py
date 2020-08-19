@@ -24,6 +24,7 @@ class Style_Transfer_Model(nn.Module):
                 in_channels,
                 out_channels,
                 in_size,
+                num_classes,
                 block_activation=nn.ReLU(),
                 final_activation=nn.Tanh(),
                 batch_norm=False,
@@ -51,7 +52,7 @@ class Style_Transfer_Model(nn.Module):
         self.dec = Decoder(min_channels, max_channels, out_channels, block_activation, final_activation, batch_norm, drop_rate, bias)
         self.inst_norm = nn.InstanceNorm2d(max_channels, momentum=0.)
 
-        self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, block_activation=nn.LeakyReLU(), batch_norm, drop_rate, bias)
+        self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, num_classes, nn.LeakyReLU(), batch_norm, drop_rate, bias)
         
         self.logger.info("initialized.")
 
@@ -200,6 +201,7 @@ class Discriminator(nn.Module):
                 out_size,
                 min_channels,
                 max_channels,
+                num_classes,
                 block_activation=nn.LeakyReLU(),
                 batch_norm=False,
                 drop_rate=None,
@@ -218,7 +220,7 @@ class Discriminator(nn.Module):
         """
         super(Discriminator, self).__init__()
         self.logger = get_logger("Discrimnator")
-        layers  = []
+        conv_layers  = []
         channel_numbers = [out_channels] + list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels+1)).astype(np.int))
         linear_nodes = int(out_size**2 * (1/2)**(len(channel_numbers)-2))
         print(linear_nodes)
@@ -226,17 +228,23 @@ class Discriminator(nn.Module):
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
             # add convolution
-            layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias))
-        layers.append(nn.Flatten())
-        layers.append(nn.Linear(linear_nodes, 1))
-        layers.append(nn.Sigmoid())
+            conv_layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias))
+        
+        self.conv = nn.Sequential(*conv_layers)
+        
+        lin_layers = []
+        lin_layers.append(nn.Flatten())
+        lin_layers.append(nn.Linear(linear_nodes + num_classes, 1))
+        lin_layers.append(nn.Sigmoid())
+
+        self.lin = nn.Sequential(*lin_layers)
 
         # save all blocks to the class instance
-        self.main = nn.Sequential(*layers)
         self.logger.debug("Decoder channel sizes: {}".format(channel_numbers + [out_channels]))
-        self.logger.debug("Linear layer size: {}".format(linear_nodes))
+        self.logger.debug("Linear layer size: {}".format(linear_nodes + num_classes))
     
-    def forward(self, x):
+    def forward(self, x, style_labels):
+        x = self.
         return self.main(x)
 
 
