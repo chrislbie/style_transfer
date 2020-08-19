@@ -8,14 +8,14 @@ import os
 
 try:
     from models.modules import Transpose2dBlock, ExtraConvBlock, Conv2dBlock
-    from models.utils import style_mean_std
+    from models.utils import style_mean_std, conditional_intance_normalization
 except:
     cur_path = os.path.dirname(os.path.abspath(__file__))
     cur_path = cur_path.replace("\\", "/")
     path = cur_path[:cur_path.rfind('/')]
     sys.path.append(path)
     from models.modules import Transpose2dBlock, ExtraConvBlock, Conv2dBlock
-    from models.utils import style_mean_std
+    from models.utils import style_mean_std, conditional_intance_normalization
 
 class Style_Transfer_Model(nn.Module):
     def __init__(self,
@@ -52,13 +52,14 @@ class Style_Transfer_Model(nn.Module):
         
         self.logger.info("initialized.")
 
-    def forward(self, x, s):
-        x = self.c_enc(x)
-        s = self.s_enc(s)
-        mean, std = style_mean_std(s)
-        x = self.inst_norm(x)
-        x = (x - mean)/std
-        return self.dec(x)
+    def forward(self, x, y):
+        assert (x.shape[0] == 2 & y.shape[0] == 2)
+        self.c = self.c_enc(x)
+        self.s = self.s_enc(y)
+        mean, std = style_mean_std(self.s)
+        self.c_norm = self.inst_norm(self.c)
+        self.cs = conditional_intance_normalization(self.c_norm, mean, std)
+        return self.dec(self.cs)
 
 class Content_Encoder(nn.Module):
     def __init__(self,
