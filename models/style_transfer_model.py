@@ -223,17 +223,16 @@ class Discriminator(nn.Module):
         conv_layers  = []
         channel_numbers = [out_channels] + list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels+1)).astype(np.int))
         linear_nodes = int(out_size**2 * (1/2)**(len(channel_numbers)-2))
-        print(linear_nodes)
         for i in range(len(channel_numbers)-1):
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
             # add convolution
             conv_layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias))
-        
+        conv_layers.append(nn.Flatten())
         self.conv = nn.Sequential(*conv_layers)
         
         lin_layers = []
-        lin_layers.append(nn.Flatten())
+        
         lin_layers.append(nn.Linear(linear_nodes + num_classes, 1))
         lin_layers.append(nn.Sigmoid())
 
@@ -244,8 +243,17 @@ class Discriminator(nn.Module):
         self.logger.debug("Linear layer size: {}".format(linear_nodes + num_classes))
     
     def forward(self, x, style_labels):
-        x = self.
-        return self.main(x)
+        x = self.conv(x)
+        style_labels = style_labels[None, :] * torch.ones((x.shape[0], 1))
+        x = torch.cat((x, style_labels), dim=1)
+        return self.lin(x)
 
+""""
+model = Style_Transfer_Model(4,32,3,3,64,4)
+x = torch.ones((2, 3, 64, 64))
+out = model(x,x)
 
+print(out.shape)
+print(model.disc(out,torch.eye(4)[0]))
 
+""""

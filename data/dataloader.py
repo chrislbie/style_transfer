@@ -126,7 +126,7 @@ class DatasetEval(Dataset):
         super().__init__(config, train=False)
 
     
-def get_config(config_path):
+"""def get_config(config_path):
     with open(config_path) as file:
         config = yaml.full_load(file)
     return config
@@ -152,4 +152,4 @@ plt.show()
 
 img = d[0]["content2"].numpy().transpose((1,2,0))
 plt.imshow((img+1)/2)
-plt.show()
+plt.show()"""
