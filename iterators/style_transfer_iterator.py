@@ -91,7 +91,7 @@ class Style_Transfer_Iterator(TemplateIterator):
         #Fixpoint disentanglement loss
         fpd1 = nn.MSELoss()(self.model.s_enc(output[:1]), self.model.s_enc(output[1:2]))
         fpd2 = nn.MSELoss()(self.model.s_enc(output[:1]), self.model.s[:1])
-        losses["generator"]["fpd"] = torch.max(torch.stack([0, fpd1 - fpd2])
+        losses["generator"]["fpd"] = torch.max(torch.stack([0, fpd1 - fpd2]))
 
         losses["generator"]["total"] = adv_weight * losses["generator"]["adv"] \
                                         + rec_weight * losses["generator"]["rec"] \
