@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 import sys
 import os
+import yaml
 from edflow import get_logger
 
 
@@ -221,8 +222,8 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.logger = get_logger("Discrimnator")
         conv_layers  = []
-        channel_numbers = [out_channels] + list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels+1)).astype(np.int))
-        linear_nodes = int(out_size**2 * (1/2)**(len(channel_numbers)-2))
+        channel_numbers = [out_channels] + list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels)+1).astype(np.int))
+        linear_nodes = int((out_size/2)**2 * min_channels * (1/2)**((len(channel_numbers)-2)))
         for i in range(len(channel_numbers)-1):
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
@@ -248,10 +249,63 @@ class Discriminator(nn.Module):
         x = torch.cat((x, style_labels), dim=1)
         return self.lin(x)
 
+class Style_Transfer_Model_edflow(Style_Transfer_Model):
+    def __init__(self, config):
+        
+        """This is the constructor for the full style transfer model with costum style and content encoder and decoder.
+
+        Args:
+            min_channels (int): Channel dimension after the first convolution is applied.
+            max_channels (int): Channel dimension is double after every convolutional block up to the value 'max_channels'.
+            in_channels (int): Channel dimension of the input image.
+            out_channels (int): Channel dimension of the output image.
+            block_activation (torch.nn module, optional): Activation function used in the convolutional blocks. Defaults to nn.ReLU().
+            final_activation (torch.nn module, optional): Activation function used in the last convolution for the output image. Defaults to nn.Tanh().            
+            batch_norm (bool, optional): Normalize over the batch size. Defaults to False.
+            drop_rate (float, optional): Dropout rate for the convolutions. Defaults to None, corresponding to no dropout.
+            bias (bool, optional): If the convolutions use a bias. Defaults to True.
+        """
+
+        min_channels = config["model_config"]["min_channels"]
+        max_channels = config["model_config"]["max_channels"]
+        in_channels = config["model_config"]["in_channels"]
+        out_channels = config["model_config"]["out_channels"]
+        in_size = config["model_config"]["in_size"]
+        num_classes = config["model_config"]["num_classes"]
+        block_activation=nn.ReLU()
+        final_activation=nn.Tanh()
+        batch_norm = config["model_config"]["batch_norm"]
+        drop_rate = None if config["model_config"]["drop_rate"] == "None" else config["model_config"]["drop_rate"]
+        bias=config["model_config"]["bias"]
+
+        super(Style_Transfer_Model_edflow, self).__init__(min_channels,
+                                                        max_channels,
+                                                        in_channels,
+                                                        out_channels,
+                                                        in_size,
+                                                        num_classes,
+                                                        block_activation,
+                                                        final_activation,
+                                                        batch_norm,
+                                                        drop_rate,
+                                                        bias)
+
+
 def test():
-    model = Style_Transfer_Model(4,32,3,3,64,4)
-    x = torch.ones((2, 3, 64, 64))
+    def get_config(config_path):
+        with open(config_path) as file:
+            config = yaml.full_load(file)
+        return config
+
+    def unix_path(path):
+        return path.replace("\\", "/")
+
+    config = get_config(unix_path(r"C:\Users\user\Desktop\Zeug\Style transfer\style_transfer\configs\test_config.yaml"))
+
+    model = Style_Transfer_Model_edflow(config)
+    x = torch.ones((2, 3, 128, 128))
     out = model(x,x)
 
     print(out.shape)
-    print(model.disc(out,torch.eye(4)[0]))
+    print(model.disc(out,torch.eye(5)[0]))
+

@@ -20,13 +20,14 @@ batch_size: 1 #DO NOT CHANGE
 num_steps: 5000
 
 model_config:
-  min_channels: 64
-  max_channels: 512
+  min_channels: 32
+  max_channels: 128
   in_channels: 3
   out_channels: 3
   in_size: &IN_SIZE 128
-  block_activation: "relu"
-  final_activation: "tanh"
+  num_classes: 5
+  #block_activation: "relu" TO BE IMPLEMANTED
+  #final_activation: "tanh" TO BE IMPLEMANTED
   batch_norm: False
   drop_rate: None
   bias: True
