@@ -51,8 +51,8 @@ class Style_Transfer_Iterator(TemplateIterator):
         self.optimizer_D = torch.optim.Adam(self.model.disc.parameters(), lr=D_lr_factor * self.config["optimizer"]["lr"], betas=(.5, .999))
         self.logger.debug("Learning rate for generator: {}\nLearning rate for disriminator: {}".format(self.config["optimizer"]["lr"], self.config["optimizer"]["lr"]*D_lr_factor))
 
-        self.real_label = 1
-        self.fake_label = 1
+        self.real_label = torch.tensor(1).float().to(self.device)
+        self.fake_label = torch.tensor(0).float().to(self.device)
 
     def criterion(self, content_images, style_images, output, style_label):
         """Calculates losses according to models in and output
