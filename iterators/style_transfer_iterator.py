@@ -54,6 +54,8 @@ class Style_Transfer_Iterator(TemplateIterator):
         self.real_label = torch.ones(4).float().to(self.device)
         self.fake_label = torch.zeros(4).float().to(self.device)
 
+        self.zero = torch.tensor(0).float().to(self.device)
+
     def criterion(self, content_images, style_images, output, style_label):
         """Calculates losses according to models in and output
 
@@ -87,11 +89,11 @@ class Style_Transfer_Iterator(TemplateIterator):
         #Fixpoint triplet style loss
         fpt1 = nn.MSELoss()(self.model.s[:1], self.model.s_enc(output[:1]))
         fpt2 = nn.MSELoss()(self.model.s[:1], self.model.s_enc(output[2:3]))
-        losses["generator"]["fpt_style"] = torch.max(torch.stack([0, fpt_margin + fpt1 - fpt2]))
+        losses["generator"]["fpt_style"] = torch.max(torch.stack([self.zero, fpt_margin + fpt1 - fpt2]))
         #Fixpoint disentanglement loss
         fpd1 = nn.MSELoss()(self.model.s_enc(output[:1]), self.model.s_enc(output[1:2]))
         fpd2 = nn.MSELoss()(self.model.s_enc(output[:1]), self.model.s[:1])
-        losses["generator"]["fpd"] = torch.max(torch.stack([0, fpd1 - fpd2]))
+        losses["generator"]["fpd"] = torch.max(torch.stack([self.zero, fpd1 - fpd2]))
 
         losses["generator"]["total"] = adv_weight * losses["generator"]["adv"] \
                                         + rec_weight * losses["generator"]["rec"] \
