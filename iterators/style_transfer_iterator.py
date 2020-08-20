@@ -79,7 +79,7 @@ class Style_Transfer_Iterator(TemplateIterator):
 
         losses["generator"] = {}
         #adversarial loss
-        losses["generator"]["adv"] = torch.mean(nn.BCELoss()(self.model.disc(output), self.real_label))
+        losses["generator"]["adv"] = torch.mean(nn.BCELoss()(self.model.disc(output, style_label), self.real_label))
         #reconstruction loss
         losses["generator"]["rec"] = torch.mean(nn.MSELoss()(output, torch.cat((content_images, content_images))))
         #Fixpoint content loss
@@ -100,8 +100,8 @@ class Style_Transfer_Iterator(TemplateIterator):
                                         + fpd_weight * losses["generator"]["fpd"]
 
         ######### Discriminator Loss #########
-        d_real = self.model.disc(style_images.detach()).view(-1)
-        d_fake = self.model.disc(output.detach()).view(-1)
+        d_real = self.model.disc(style_images.detach(), style_label).view(-1)
+        d_fake = self.model.disc(output.detach(), style_label).view(-1)
 
         losses["discriminator"] = {}
         losses["discriminator"]["outputs_real"] = np.mean(d_real.detach().cpu().numpy())
