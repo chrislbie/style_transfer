@@ -188,7 +188,7 @@ class Decoder(nn.Module):
         
         # save all blocks to the class instance
         self.main = nn.Sequential(*layers)
-        self.logger.debug("Decoder channel sizes: {}".format(channel_numbers + [out_channels]))
+        self.logger.debug("Decoder channel sizes: {}".format(channel_numbers))
 
     def forward(self, x):
         """This function creates reconstructed image from style and content."""
@@ -240,7 +240,7 @@ class Discriminator(nn.Module):
         self.lin = nn.Sequential(*lin_layers)
 
         # save all blocks to the class instance
-        self.logger.debug("Decoder channel sizes: {}".format(channel_numbers + [out_channels]))
+        self.logger.debug("Discriminator channel sizes: {}".format(channel_numbers))
         self.logger.debug("Linear layer size: {}".format(linear_nodes + num_classes))
     
     def forward(self, x, style_labels):
@@ -291,21 +291,4 @@ class Style_Transfer_Model_edflow(Style_Transfer_Model):
                                                         bias)
 
 
-def test():
-    def get_config(config_path):
-        with open(config_path) as file:
-            config = yaml.full_load(file)
-        return config
-
-    def unix_path(path):
-        return path.replace("\\", "/")
-
-    config = get_config(unix_path(r"C:\Users\user\Desktop\Zeug\Style transfer\style_transfer\configs\test_config.yaml"))
-
-    model = Style_Transfer_Model_edflow(config)
-    x = torch.ones((2, 3, 128, 128))
-    out = model(x,x)
-
-    print(out.shape)
-    print(model.disc(out,torch.eye(5)[0]))
 

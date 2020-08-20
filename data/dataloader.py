@@ -132,31 +132,3 @@ class DatasetEval(Dataset):
     def __init__(self, config):
         super().__init__(config, train=False)
 
-def test():  
-    def get_config(config_path):
-        with open(config_path) as file:
-            config = yaml.full_load(file)
-        return config
-
-    def unix_path(path):
-        return path.replace("\\", "/")
-
-    config = get_config(unix_path(r"C:\Users\user\Desktop\Zeug\Style transfer\style_transfer\configs\test_config.yaml"))
-
-    d = DatasetTrain(config)
-
-    img = d[0]["style1"].numpy().transpose((1,2,0))
-    plt.imshow((img+1)/2)
-    plt.show()
-
-    img = d[0]["style2"].numpy().transpose((1,2,0))
-    plt.imshow((img+1)/2)
-    plt.show()
-
-    img = d[0]["content1"].numpy().transpose((1,2,0))
-    plt.imshow((img+1)/2)
-    plt.show()
-
-    img = d[0]["content2"].numpy().transpose((1,2,0))
-    plt.imshow((img+1)/2)
-    plt.show()
