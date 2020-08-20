@@ -139,15 +139,16 @@ class Style_Transfer_Iterator(TemplateIterator):
         def train_op():
             """Training step including log generation for evaluation"""
             #Generator update
-            #set_requires_grad([self.model.disc], False)
+            set_requires_grad([self.model.disc], False)
             self.optimizer_G.zero_grad()
             losses["generator"]["total"].backward()
             self.optimizer_G.step()
 
             #Discriminator update
-            #set_requires_grad([self.model.disc], True)
+            set_requires_grad([self.model.disc], True)
             self.optimizer_D.zero_grad()
             losses["discriminator"]["total"].backward()
+            self.optimizer_D.step()
 
         def log_op():
             logs = self.prepare_logs(losses, content_images, style_images, output)
