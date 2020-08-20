@@ -115,9 +115,14 @@ class Style_Transfer_Iterator(TemplateIterator):
     def step_op(self, model, **kwargs):
 
         #Get data from dataloader and push to device
-        content_images = torch.stack([kwargs["content1"], kwargs["content2"]]).to(self.device)
-        style_images = torch.stack([kwargs["style1"], kwargs["style2"]]).to(self.device)
-        style_label = kwargs["label"].to(self.device)
+        content1 = torch.tensor(kwargs["content1"]).float().to(self.device)
+        content2 = torch.tensor(kwargs["content2"]).float().to(self.device)
+        content_images = torch.stack([content1, content2])
+        
+        style1 = torch.tensor(kwargs["style1"]).float().to(self.device)
+        style2 = torch.tensor(kwargs["style2"]).float().to(self.device)
+        style_images = torch.stack([style1, style2])
+        style_label = torch.tensor(kwargs["label"]).float().to(self.device)
         artist = kwargs["artist"]
         self.logger.debug("content_images.shape: {}".format(content_images.shape))
         self.logger.debug("style_images.shape: {}".format(style_images.shape))
