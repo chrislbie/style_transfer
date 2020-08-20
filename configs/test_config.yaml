@@ -57,3 +57,4 @@ losses:
   fpt_style_weight: 1
   fpt_margin: 0
   fpd_weight: 1
+  gp_weight: 1

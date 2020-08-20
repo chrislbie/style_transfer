@@ -13,7 +13,8 @@ try:
         set_random_state,
         set_requires_grad,
         pt2np,
-        convert_logs2numpy
+        convert_logs2numpy,
+        calculate_gradient_penalty
     )
 except ModuleNotFoundError:
     cur_path = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +26,8 @@ except ModuleNotFoundError:
         set_random_state,
         set_requires_grad,
         pt2np,
-        convert_logs2numpy
+        convert_logs2numpy,
+        calculate_gradient_penalty
     )
 
 
@@ -102,6 +104,8 @@ class Style_Transfer_Iterator(TemplateIterator):
                                         + fpd_weight * losses["generator"]["fpd"]
 
         ######### Discriminator Loss #########
+        gp_weight = self.config["losses"]["gp_weight"] if "gp_weight" in self.config["losses"] else 0
+
         d_real = self.model.disc(style_images.detach(), style_label).view(-1)
         d_fake = self.model.disc(output.detach(), style_label).view(-1)
 
@@ -111,7 +115,9 @@ class Style_Transfer_Iterator(TemplateIterator):
         losses["discriminator"]["fake"] = torch.mean(nn.BCELoss()(d_fake, torch.zeros_like(d_fake).to(self.device)))
         losses["discriminator"]["real"] = torch.mean(nn.BCELoss()(d_real, torch.ones_like(d_real).to(self.device)))
         losses["discriminator"]["total"] = losses["discriminator"]["fake"] + losses["discriminator"]["real"]
-    
+        if gp_weight > 0:
+            losses["discriminator"]["gp"] = calculate_gradient_penalty(self.model.disc, torch.cat(torch.stack([style_images, style_images])), output.detach(), device=self.device)
+            losses["discriminator"]["total"] += gp_weight * losses["discriminator"]["gp"]
         return losses
 
     def step_op(self, model, **kwargs):
