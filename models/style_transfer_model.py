@@ -244,8 +244,11 @@ class Discriminator(nn.Module):
         self.logger.debug("Linear layer size: {}".format(linear_nodes + num_classes))
     
     def forward(self, x, style_labels):
+        self.logger.debug("Input shape: {}".format(x.shape))
         x = self.conv(x)
+        self.logger.debug("Input shape after conv: {}".format(x.shape))
         style_labels = style_labels[None, :] * torch.ones((x.shape[0], 1)).to(x.device)
+        self.logger.debug("Style label shape: {}".format(style_labels.shape))
         x = torch.cat((x, style_labels), dim=1)
         return self.lin(x)
 
