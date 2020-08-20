@@ -117,11 +117,11 @@ class Style_Transfer_Iterator(TemplateIterator):
         #Get data from dataloader and push to device
         content1 = torch.tensor(kwargs["content1"]).float().to(self.device)
         content2 = torch.tensor(kwargs["content2"]).float().to(self.device)
-        content_images = torch.stack([content1, content2])
+        content_images = torch.cat([content1, content2])
         
         style1 = torch.tensor(kwargs["style1"]).float().to(self.device)
         style2 = torch.tensor(kwargs["style2"]).float().to(self.device)
-        style_images = torch.stack([style1, style2])
+        style_images = torch.cat([style1, style2])
         style_label = torch.tensor(kwargs["label"]).float().to(self.device)
         artist = kwargs["artist"]
         self.logger.debug("content_images.shape: {}".format(content_images.shape))
