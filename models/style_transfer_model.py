@@ -246,7 +246,7 @@ class Discriminator(nn.Module):
         if lin_layer_size > 0:
             lin_layers.append(nn.Linear(linear_nodes, lin_layer_size))
             lin_layers.append(nn.ReLU())
-            linear_nodes = linear_nodes
+            linear_nodes = lin_layer_size
         lin_layers.append(nn.Linear(linear_nodes, 1))
         lin_layers.append(nn.Sigmoid())
 
