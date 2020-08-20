@@ -47,7 +47,7 @@ class Style_Transfer_Iterator(TemplateIterator):
         self.model = model.to(self.device)
 
         self.optimizer_G = torch.optim.Adam(chain(self.model.c_enc.parameters(), self.model.s_enc.parameters(), self.model.dec.parameters()), lr=config["optimizer"]["lr"], betas=(.5, .999))
-        D_lr_factor = self.config["optimizer"]["D_lr_factor"] if "D_lr_factor" in config["optimization"] else 1
+        D_lr_factor = self.config["optimizer"]["D_lr_factor"] if "D_lr_factor" in config["optimizer"] else 1
         self.optimizer_D = torch.optim.Adam(self.model.disc.parameters(), lr=D_lr_factor * self.config["optimizer"]["lr"], betas=(.5, .999))
         self.logger.debug("Learning rate for generator: {}\nLearning rate for disriminator: {}").format(self.config["optimizer"]["lr"], self.config["optimizer"]["lr"]*D_lr_factor)
 
