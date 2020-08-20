@@ -97,11 +97,7 @@ class Style_Transfer_Iterator(TemplateIterator):
         fpd2 = nn.MSELoss()(self.model.s_enc(output[:1]), self.model.s[:1])
         losses["generator"]["fpd"] = torch.max(torch.stack([self.zero, fpd1 - fpd2]))
 
-        losses["generator"]["total"] = adv_weight * losses["generator"]["adv"] \
-                                        + rec_weight * losses["generator"]["rec"] \
-                                        + fp_cont_weight * losses["generator"]["fp_cont"] \
-                                        + fpt_style_weight * losses["generator"]["fpt_style"] \
-                                        + fpd_weight * losses["generator"]["fpd"]
+        losses["generator"]["total"] = adv_weight * losses["generator"]["adv"] + rec_weight * losses["generator"]["rec"] + fp_cont_weight * losses["generator"]["fp_cont"] + fpt_style_weight * losses["generator"]["fpt_style"] + fpd_weight * losses["generator"]["fpd"]
 
         ######### Discriminator Loss #########
         gp_weight = self.config["losses"]["gp_weight"] if "gp_weight" in self.config["losses"] else 0
