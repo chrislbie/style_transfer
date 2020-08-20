@@ -245,7 +245,7 @@ class Discriminator(nn.Module):
     
     def forward(self, x, style_labels):
         x = self.conv(x)
-        style_labels = style_labels[None, :] * torch.ones((x.shape[0], 1))
+        style_labels = style_labels[None, :] * torch.ones((x.shape[0], 1)).to(x.device)
         x = torch.cat((x, style_labels), dim=1)
         return self.lin(x)
 
