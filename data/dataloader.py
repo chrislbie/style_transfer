@@ -78,7 +78,7 @@ class Dataset(DatasetMixin):
     def load_content_indices(self, train):
         """Generates list of indices for either train or test subset."""
         names  = os.listdir(self.content_root)
-        cut_ind = int(len(names) * self.config["data"]["validation_split"])
+        cut_ind = int(len(names) * (1-self.config["data"]["validation_split"]))
         if train:
             indices = np.arange(cut_ind)
         else:
