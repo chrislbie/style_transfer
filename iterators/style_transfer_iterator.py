@@ -108,8 +108,8 @@ class Style_Transfer_Iterator(TemplateIterator):
         losses["discriminator"] = {}
         losses["discriminator"]["outputs_real"] = np.mean(d_real.detach().cpu().numpy())
         losses["discriminator"]["outputs_fake"] = np.mean(d_fake.detach().cpu().numpy())
-        losses["discriminator"]["fake"] = torch.mean(nn.BCELoss(d_fake, torch.zeros_like(d_fake).to(self.device)))
-        losses["discriminator"]["real"] = torch.mean(nn.BCELoss(d_real, torch.ones_like(d_real).to(self.device)))
+        losses["discriminator"]["fake"] = torch.mean(nn.BCELoss()(d_fake, torch.zeros_like(d_fake).to(self.device)))
+        losses["discriminator"]["real"] = torch.mean(nn.BCELoss()(d_real, torch.ones_like(d_real).to(self.device)))
         losses["discriminator"]["total"] = losses["discriminator"]["fake"] + losses["discriminator"]["real"]
     
         return losses
