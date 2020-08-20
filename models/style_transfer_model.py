@@ -55,7 +55,7 @@ class Style_Transfer_Model(nn.Module):
         self.dec = Decoder(min_channels, max_channels, out_channels, num_extra_conv, block_activation, final_activation, batch_norm, drop_rate, bias)
         self.inst_norm = nn.InstanceNorm2d(max_channels, momentum=0.)
 
-        self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, num_classes, lin_layer_size, nn.LeakyReLU(), batch_norm, drop_rate, bias)
+        self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, num_classes, lin_layer_size, nn.LeakyReLU(0.2), batch_norm, drop_rate, bias)
         
         self.logger.info("initialized.")
 
