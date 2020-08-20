@@ -42,7 +42,7 @@ def set_requires_grad(nets, requires_grad=False):
             for param in net.parameters():
                 param.requires_grad = requires_grad
 
-def calculate_gradient_penalty(discriminator, real_images, fake_images, device):
+def calculate_gradient_penalty(discriminator, real_images, fake_images, device, style_label):
     '''Return the gradient penalty for the discriminator.'''
     eta = torch.FloatTensor(real_images.size()[0], 1, 1, 1).uniform_(0, 1)
     eta = eta.expand(real_images.size()[0], real_images.size(1), real_images.size(2), real_images.size(3))
@@ -53,7 +53,7 @@ def calculate_gradient_penalty(discriminator, real_images, fake_images, device):
     # define it to calculate gradient
     interpolated = Variable(interpolated, requires_grad=True)
     # calculate probability of interpolated examples
-    prob_interpolated = discriminator(interpolated)
+    prob_interpolated = discriminator(interpolated, style_label)
     # calculate gradients of probabilities with respect to examples
     gradients = autograd.grad(outputs=prob_interpolated, inputs=interpolated,
                               grad_outputs=torch.ones(
