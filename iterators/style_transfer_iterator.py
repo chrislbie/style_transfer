@@ -8,7 +8,7 @@ from itertools import chain
 from edflow import TemplateIterator, get_logger
 
 try:
-    from iterators.util import (
+    from iterators.utils import (
         set_gpu,
         set_random_state,
         set_requires_grad,
@@ -20,7 +20,7 @@ except ModuleNotFoundError:
     cur_path = cur_path.replace("\\", "/")
     path = cur_path[:cur_path.rfind('/')]
     sys.path.append(path)
-    from iterators.util import (
+    from iterators.utils import (
         set_gpu,
         set_random_state,
         set_requires_grad,
