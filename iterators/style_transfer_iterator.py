@@ -175,7 +175,7 @@ class Style_Transfer_Iterator(TemplateIterator):
         style_images = pt2np(style_images)
         output = pt2np(output)
         logs["images"].update({"content_images": content_images})
-        logs["images"].update({"style_images": content_images})
+        logs["images"].update({"style_images": style_images})
         logs["images"].update({"output": output})
         # convert to numpy
         logs = convert_logs2numpy(logs)
