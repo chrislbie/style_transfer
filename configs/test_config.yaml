@@ -28,6 +28,8 @@ model_config:
   num_classes: 5
   num_extra_conv: 0
   lin_layer_size: 0
+  residual: True
+  pooling: "max"
   #block_activation: "relu" TO BE IMPLEMANTED
   #final_activation: "tanh" TO BE IMPLEMANTED
   batch_norm: False

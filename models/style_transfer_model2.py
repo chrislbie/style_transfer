@@ -53,7 +53,7 @@ class Style_Transfer_Model(nn.Module):
         self.logger = get_logger("Style_Transfer_Model")
         
         self.c_enc = Content_Encoder(min_channels, max_channels, in_channels, num_extra_conv, residual, pooling, block_activation, batch_norm, drop_rate, bias)
-        self.s_enc = Style_Encoder(min_channels, max_channels, in_channels, block_activation, batch_norm, drop_rate, bias)
+        self.s_enc = Style_Encoder(min_channels, max_channels, in_channels, num_extra_conv, residual, pooling, block_activation, batch_norm, drop_rate, bias)
         self.dec = Decoder(min_channels, max_channels, out_channels, num_extra_conv, block_activation, final_activation, batch_norm, drop_rate, bias)
         self.inst_norm = nn.InstanceNorm2d(max_channels, momentum=0.)
 
