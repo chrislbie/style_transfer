@@ -14,7 +14,7 @@ debug_log_level: True
 
 ## Iterator info ##
 # specify the batchsize for training
-batch_size: 1
+batch_size: 1 #DO NOT CHANGE
 # specify the length of training
 # in either "num_epochs" or "num_steps" 
 num_steps: 5000
@@ -29,7 +29,7 @@ model_config:
   final_activation: "tanh"
   batch_norm: False
   drop_rate: None
-  bias: False
+  bias: True
 
 data:
   style_path: "C:\\Users\\user\\Desktop\\Zeug\\Style transfer\\data\\art\\selection"
@@ -42,3 +42,15 @@ data:
       type: "center" #or random or max_random (yet to be implemented)
       size: 512
     mirror: True
+
+optimizer:
+  lr: 0.0002
+  D_lr_factor: 1
+
+losses:
+  adv_weight: 1
+  rec_weight: 1
+  fp_cont_weight: 1
+  fpt_style_weight: 1
+  fpt_margin: 0
+  fpd_weight: 1

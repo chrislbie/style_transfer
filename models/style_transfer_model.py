@@ -248,12 +248,10 @@ class Discriminator(nn.Module):
         x = torch.cat((x, style_labels), dim=1)
         return self.lin(x)
 
-""""
-model = Style_Transfer_Model(4,32,3,3,64,4)
-x = torch.ones((2, 3, 64, 64))
-out = model(x,x)
+def test():
+    model = Style_Transfer_Model(4,32,3,3,64,4)
+    x = torch.ones((2, 3, 64, 64))
+    out = model(x,x)
 
-print(out.shape)
-print(model.disc(out,torch.eye(4)[0]))
-
-""""
+    print(out.shape)
+    print(model.disc(out,torch.eye(4)[0]))
