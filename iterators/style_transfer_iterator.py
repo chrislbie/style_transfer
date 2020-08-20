@@ -87,7 +87,7 @@ class Style_Transfer_Iterator(TemplateIterator):
         #Fixpoint triplet style loss
         fpt1 = nn.MSELoss()(self.model.s[:1], self.model.s_enc(output[:1]))
         fpt2 = nn.MSELoss()(self.model.s[:1], self.model.s_enc(output[2:3]))
-        losses["generator"]["fpt_style"] = torch.max(troch.stack([0, fpt_margin + fpt1 - fpt2]))
+        losses["generator"]["fpt_style"] = torch.max(torch.stack([0, fpt_margin + fpt1 - fpt2]))
         #Fixpoint disentanglement loss
         fpd1 = nn.MSELoss()(self.model.s_enc(output[:1]), self.model.s_enc(output[1:2]))
         fpd2 = nn.MSELoss()(self.model.s_enc(output[:1]), self.model.s[:1])
