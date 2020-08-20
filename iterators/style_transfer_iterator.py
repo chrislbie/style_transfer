@@ -116,7 +116,7 @@ class Style_Transfer_Iterator(TemplateIterator):
         losses["discriminator"]["real"] = torch.mean(nn.BCELoss()(d_real, torch.ones_like(d_real).to(self.device)))
         losses["discriminator"]["total"] = losses["discriminator"]["fake"] + losses["discriminator"]["real"]
         if gp_weight > 0:
-            losses["discriminator"]["gp"] = calculate_gradient_penalty(self.model.disc, torch.cat(torch.stack([style_images, style_images])), output.detach(), device=self.device)
+            losses["discriminator"]["gp"] = calculate_gradient_penalty(self.model.disc, torch.cat((style_images, style_images)), output.detach(), device=self.device)
             losses["discriminator"]["total"] += gp_weight * losses["discriminator"]["gp"]
         return losses
 
