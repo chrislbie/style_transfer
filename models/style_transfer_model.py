@@ -8,14 +8,14 @@ from edflow import get_logger
 
 
 try:
-    from models.modules import Transpose2dBlock, Conv2dBlock
+    from models.modules import Transpose2dBlock, Conv2dBlock, ExtraConvBlock
     from models.utils import style_mean_std, conditional_intance_normalization
 except ModuleNotFoundError:
     cur_path = os.path.dirname(os.path.abspath(__file__))
     cur_path = cur_path.replace("\\", "/")
     path = cur_path[:cur_path.rfind('/')]
     sys.path.append(path)
-    from models.modules import Transpose2dBlock, Conv2dBlock
+    from models.modules import Transpose2dBlock, Conv2dBlock, ExtraConvBlock
     from models.utils import style_mean_std, conditional_intance_normalization
 
 class Style_Transfer_Model(nn.Module):
@@ -26,6 +26,8 @@ class Style_Transfer_Model(nn.Module):
                 out_channels,
                 in_size,
                 num_classes,
+                num_extra_conv=0,
+                lin_layer_size=0,
                 block_activation=nn.ReLU(),
                 final_activation=nn.Tanh(),
                 batch_norm=False,
@@ -48,12 +50,12 @@ class Style_Transfer_Model(nn.Module):
         super(Style_Transfer_Model, self).__init__()
         self.logger = get_logger("Style_Transfer_Model")
         
-        self.c_enc = Content_Encoder(min_channels, max_channels, in_channels, block_activation, batch_norm, drop_rate, bias)
+        self.c_enc = Content_Encoder(min_channels, max_channels, in_channels, num_extra_conv, block_activation, batch_norm, drop_rate, bias)
         self.s_enc = Style_Encoder(min_channels, max_channels, in_channels, block_activation, batch_norm, drop_rate, bias)
-        self.dec = Decoder(min_channels, max_channels, out_channels, block_activation, final_activation, batch_norm, drop_rate, bias)
+        self.dec = Decoder(min_channels, max_channels, out_channels, num_extra_conv, block_activation, final_activation, batch_norm, drop_rate, bias)
         self.inst_norm = nn.InstanceNorm2d(max_channels, momentum=0.)
 
-        self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, num_classes, nn.LeakyReLU(), batch_norm, drop_rate, bias)
+        self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, num_classes, lin_layer_size, nn.LeakyReLU(), batch_norm, drop_rate, bias)
         
         self.logger.info("initialized.")
 
@@ -71,6 +73,7 @@ class Content_Encoder(nn.Module):
                  min_channels,
                  max_channels,
                  in_channels,
+                 num_extra_conv=0,
                  block_activation=nn.ReLU(),
                  batch_norm=False,
                  drop_rate=None,
@@ -96,6 +99,9 @@ class Content_Encoder(nn.Module):
         for i in range(len(channel_numbers)-1):
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
+            # add extra convolutions
+            for i in range(num_extra_conv):
+                layers.append(ExtraConvBlock(in_ch, block_activation, batch_norm, drop_rate, bias))
             # add convolution
             layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias))
         # save all blocks to the class instance
@@ -155,6 +161,7 @@ class Decoder(nn.Module):
                  min_channels,
                  max_channels,
                  out_channels,
+                 num_extra_conv=0,
                  block_activation=nn.ReLU(),
                  final_activation=nn.Tanh(),
                  batch_norm=False,
@@ -185,7 +192,8 @@ class Decoder(nn.Module):
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
             layers.append(Transpose2dBlock(in_ch, out_ch, activation, batch_norm, drop_rate, bias, stride=stride, padding=padding))
-        
+            for i in range(num_extra_conv):
+                layers.append(ExtraConvBlock(out_ch, block_activation, batch_norm, drop_rate, bias))
         # save all blocks to the class instance
         self.main = nn.Sequential(*layers)
         self.logger.debug("Decoder channel sizes: {}".format(channel_numbers))
@@ -203,6 +211,7 @@ class Discriminator(nn.Module):
                 min_channels,
                 max_channels,
                 num_classes,
+                lin_layer_size=128,
                 block_activation=nn.LeakyReLU(),
                 batch_norm=False,
                 drop_rate=None,
@@ -233,8 +242,12 @@ class Discriminator(nn.Module):
         self.conv = nn.Sequential(*conv_layers)
         
         lin_layers = []
-        
-        lin_layers.append(nn.Linear(linear_nodes + num_classes, 1))
+        linear_nodes = linear_nodes + num_classes
+        if lin_layer_size > 0:
+            lin_layers.append(nn.Linear(linear_nodes, lin_layer_size))
+            lin_layers.append(nn.ReLU())
+            linear_nodes = linear_nodes
+        lin_layers.append(nn.Linear(linear_nodes, 1))
         lin_layers.append(nn.Sigmoid())
 
         self.lin = nn.Sequential(*lin_layers)
@@ -272,6 +285,8 @@ class Style_Transfer_Model_edflow(Style_Transfer_Model):
         out_channels = config["model_config"]["out_channels"]
         in_size = config["model_config"]["in_size"]
         num_classes = config["model_config"]["num_classes"]
+        num_extra_conv = config["model_config"]["num_extra_conv"]
+        lin_layer_size = config["model_config"]["lin_layer_size"]
         block_activation=nn.ReLU()
         final_activation=nn.Tanh()
         batch_norm = config["model_config"]["batch_norm"]
@@ -284,6 +299,8 @@ class Style_Transfer_Model_edflow(Style_Transfer_Model):
                                                         out_channels,
                                                         in_size,
                                                         num_classes,
+                                                        num_extra_conv,
+                                                        lin_layer_size,
                                                         block_activation,
                                                         final_activation,
                                                         batch_norm,

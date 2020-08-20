@@ -26,6 +26,8 @@ model_config:
   out_channels: 3
   in_size: &IN_SIZE 128
   num_classes: 5
+  num_extra_conv: 0
+  lin_layer_size: 0
   #block_activation: "relu" TO BE IMPLEMANTED
   #final_activation: "tanh" TO BE IMPLEMANTED
   batch_norm: False
@@ -45,7 +47,7 @@ data:
     mirror: True
 
 optimizer:
-  lr: 0.0002
+  lr: 0.0001
   D_lr_factor: 1
 
 losses:
