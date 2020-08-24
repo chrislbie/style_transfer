@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Transpose2dBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, Activation=nn.ReLU(), batch_norm=False, drop_rate=None, bias=False, kernel_size=4, stride=2, padding=1):
+    def __init__(self, in_channels, out_channels, Activation=nn.ReLU(), batch_norm=False, drop_rate=None, bias=True, kernel_size=4, stride=2, padding=1):
         super(Transpose2dBlock, self).__init__()
         layers = [nn.ConvTranspose2d( in_channels, out_channels, kernel_size, stride, padding, bias=bias)]
         if batch_norm:
@@ -33,7 +33,7 @@ class ExtraConvBlock(nn.Module):
         return self.main(x)
 
 class Conv2dBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, Activation=nn.ReLU(), batch_norm=False, drop_rate=None, bias=False, kernel_size=3, stride=2, padding=1):
+    def __init__(self, in_channels, out_channels, Activation=nn.ReLU(), batch_norm=False, drop_rate=None, bias=True, kernel_size=3, stride=2, padding=1):
         super(Conv2dBlock, self).__init__()
         layers = [nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)]
         if batch_norm:
@@ -46,63 +46,54 @@ class Conv2dBlock(nn.Module):
     def forward(self, x):
         return self.main(x)
 
-class Conv2dBlock2(nn.Module):
-    def __init__(self, in_channels, out_channels, Activation=nn.ReLU(), batch_norm=False, drop_rate=None, bias=False, kernel_size=3, stride=2, padding=1, pooling=None, num_extra_conv=0, residual=False):
-        super(Conv2dBlock2, self).__init__()
-        assert (residual and pooling is not None) or not residual, "residual only works with pooling"
-        stride = stride if pooling is None else 1
-        self.residual = residual
-        self.pooling = pooling
-        #Blocks to preserve spatial size
-        for i in range(num_extra_conv):
-            layers = [nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, padding=1, bias=bias)]
-            if batch_norm:
-                layers.append(nn.BatchNorm2d(in_channels))
-            if drop_rate is not None:
-                layers.append(nn.Dropout(drop_rate))
-            layers.append(Activation)
-
-        #Blocks to reduce spatial size
-        layers = [nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)]
+class LinearBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, Activation, batch_norm=False, drop_rate=None, bias=True):
+        super(LinearBlock, self).__init__()
+        layers = [nn.Linear(in_channels, out_channels, bias)]
         if batch_norm:
             layers.append(nn.BatchNorm2d(out_channels))
         if drop_rate is not None:
             layers.append(nn.Dropout(drop_rate))
-        
-        self.main = nn.Sequential(*layers)
-        self.act = Activation
-        
-        if pooling is not None:
-            if pooling == 'max':
-                self.pooling_layer = nn.MaxPool2d(2)
-            elif pooling == 'avg':
-                self.pooling_layer = nn.AvgPool2d(2)
-            else:
-                assert False, "No valid pooling argument. Valid options: None (default), 'max', 'avg'"
-        
-        if self.residual:
-            self.downsample = nn.AvgPool2d(2)
-            res_layers = [nn.Conv2d(in_channels=in_channels + out_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1, bias=bias)]
-            if batch_norm:
-                res_layers.append(nn.BatchNorm2d(out_channels))
-            if drop_rate is not None:
-                res_layers.append(nn.Dropout(drop_rate))
-            self.res_layers = nn.Sequential(*res_layers)
-        
+        if Activation is not None:
+            layers.append(Activation)   
+        self.main = nn.Sequential(*layers) 
     def forward(self, x):
-        y = self.main(x)
+        return self.main(x)
 
-        if self.residual:
-            y = self.act(y)
-            y = torch.cat((y, x), dim=1)
-            y = self.res_layers(y)
+class ConditionalInstanceNormalization(nn.Module):
+    """Renormalize content to scale with offest defined by style vector
+
+    Args:
+        content_channels (int): Number of channels of content input
+        style_dim (int): Dimension of style vectors
+    """
+    def __init__(self, content_channels, style_dim):
+        super(ConditionalInstanceNormalization, self).__init__()
+        self.scale = LinearBlock(style_dim, content_channels, nn.LeakyReLU(0.2))
+        self.offset = LinearBlock(style_dim, content_channels, nn.LeakyReLU(0.2))
+        self.inst = nn.InstanceNorm2d(content_channels, momentum=0)
+    
+    def forward(self, content, style):
+        scale = self.scale(style)[..., None, None]
+        offset = self.offset(style)[..., None, None]
+        content = self.inst(content)
+        content = content * scale + offset
         
-        if self.pooling:
-            y = self.pooling_layer(y)
+        return content
 
-        return self.act(y)        
+class StyleResidualBlock(nn.Module):
+    def __init__(self, channels, style_dim,  Activation=nn.LeakyReLU(0.2)):
+        super(StyleResidualBlock, self).__init__()
+        
+        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1)
+        self.cond_inst_norm1 = ConditionalInstanceNormalization(channels, style_dim)
+        self.cond_inst_norm2 = ConditionalInstanceNormalization(channels, style_dim)
+        
+        self.act = Activation
 
-inp = torch.ones((5, 8, 64, 64))
-block = Conv2dBlock2(8, 16, residual=True, pooling='max')
-print(block)
-print(block(inp).shape)
+    def forward(self, x, style):
+        y = self.act(self.cond_inst_norm1(self.conv1(x), style))
+        y = self.act(self.cond_inst_norm2(self.conv2(y), style))
+
+        return x + y

@@ -8,15 +8,15 @@ from edflow import get_logger
 
 
 try:
-    from models.modules import Transpose2dBlock, Conv2dBlock, ExtraConvBlock
-    from models.utils import style_mean_std, conditional_intance_normalization
+    from models.modules import Transpose2dBlock, Conv2dBlock, ExtraConvBlock, LinearBlock, ConditionalInstanceNormalization, StyleResidualBlock
+    from models.utils import l2_normalize
 except ModuleNotFoundError:
     cur_path = os.path.dirname(os.path.abspath(__file__))
     cur_path = cur_path.replace("\\", "/")
     path = cur_path[:cur_path.rfind('/')]
     sys.path.append(path)
-    from models.modules import Transpose2dBlock, Conv2dBlock, ExtraConvBlock
-    from models.utils import style_mean_std, conditional_intance_normalization
+    from models.modules import Transpose2dBlock, Conv2dBlock, ExtraConvBlock, LinearBlock, ConditionalInstanceNormalization, StyleResidualBlock
+    from models.utils import l2_normalize
 
 class Style_Transfer_Model(nn.Module):
     def __init__(self,
@@ -26,7 +26,8 @@ class Style_Transfer_Model(nn.Module):
                 out_channels,
                 in_size,
                 num_classes,
-                num_extra_conv=0,
+                style_dim,
+                num_res_blocks=9,
                 lin_layer_size=0,
                 block_activation=nn.ReLU(),
                 final_activation=nn.Tanh(),
@@ -41,6 +42,9 @@ class Style_Transfer_Model(nn.Module):
             max_channels (int): Channel dimension is double after every convolutional block up to the value 'max_channels'.
             in_channels (int): Channel dimension of the input image.
             out_channels (int): Channel dimension of the output image.
+            style_dim (int): Dimension of the outcoming style vector.
+            num_res_blocks (int): Number of residual blocks in the Decoder. Default to 9
+            lin_layer_size (int): Size of last linear layer in the Discriminator. Default is set to 0
             block_activation (torch.nn module, optional): Activation function used in the convolutional blocks. Defaults to nn.ReLU().
             final_activation (torch.nn module, optional): Activation function used in the last convolution for the output image. Defaults to nn.Tanh().            
             batch_norm (bool, optional): Normalize over the batch size. Defaults to False.
@@ -50,30 +54,25 @@ class Style_Transfer_Model(nn.Module):
         super(Style_Transfer_Model, self).__init__()
         self.logger = get_logger("Style_Transfer_Model")
         
-        self.c_enc = Content_Encoder(min_channels, max_channels, in_channels, num_extra_conv, block_activation, batch_norm, drop_rate, bias)
-        self.s_enc = Style_Encoder(min_channels, max_channels, in_channels, block_activation, batch_norm, drop_rate, bias)
-        self.dec = Decoder(min_channels, max_channels, out_channels, num_extra_conv, block_activation, final_activation, batch_norm, drop_rate, bias)
-        self.inst_norm = nn.InstanceNorm2d(max_channels, momentum=0.)
+        self.c_enc = Content_Encoder(min_channels, max_channels, in_channels, block_activation, batch_norm, drop_rate, bias)
+        self.s_enc = Style_Encoder(min_channels, max_channels, in_channels, style_dim, block_activation, batch_norm, drop_rate, bias)
+        self.dec = Decoder(min_channels, max_channels, out_channels, style_dim, num_res_blocks, block_activation, final_activation, batch_norm, drop_rate, bias)
 
         self.disc = Discriminator(out_channels, in_size, min_channels, max_channels, num_classes, lin_layer_size, nn.LeakyReLU(0.2), batch_norm, drop_rate, bias)
         
-        self.logger.info("initialized.")
+        self.logger.info("Initialized.")
 
     def forward(self, x, y):
         assert (x.shape[0] == 2 & y.shape[0] == 2)
         self.c = self.c_enc(x)
         self.s = self.s_enc(y)
-        mean, std = style_mean_std(self.s)
-        self.c_norm = self.inst_norm(self.c)
-        self.cs = conditional_intance_normalization(self.c_norm, mean, std)
-        return self.dec(self.cs)
+        return self.dec(self.c, self.s)
 
 class Content_Encoder(nn.Module):
     def __init__(self,
                  min_channels,
                  max_channels,
                  in_channels,
-                 num_extra_conv=0,
                  block_activation=nn.ReLU(),
                  batch_norm=False,
                  drop_rate=None,
@@ -93,17 +92,15 @@ class Content_Encoder(nn.Module):
         self.logger = get_logger("Content_Encoder")
         # create a list with all channel dimensions throughout the encoder.
         layers = []
-
         channel_numbers = [in_channels] + list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels+1)).astype(np.int))
         # get all convolutional blocks with corresponding parameters
         for i in range(len(channel_numbers)-1):
+            stride = 1 if i == 0 else 2
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
-            # add extra convolutions
-            for i in range(num_extra_conv):
-                layers.append(ExtraConvBlock(in_ch, block_activation, batch_norm, drop_rate, bias))
             # add convolution
-            layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias))
+            layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias, stride=stride))
+            layers.append(nn.InstanceNorm2d(out_ch))
         # save all blocks to the class instance
         self.main = nn.Sequential(*layers)
         self.logger.debug("Content Encoder channel sizes: {}".format(channel_numbers))
@@ -117,6 +114,7 @@ class Style_Encoder(nn.Module):
                  min_channels,
                  max_channels,
                  in_channels,
+                 style_dim,
                  block_activation=nn.ReLU(),
                  batch_norm=False,
                  drop_rate=None,
@@ -127,6 +125,7 @@ class Style_Encoder(nn.Module):
             min_channels (int): Channel dimension after the first convolution is applied.
             max_channels (int): Channel dimension is double after every convolutional block up to the value 'max_channels'.
             in_channels (int): Channel dimension of the input image.
+            style_dim (int): Dimension of the outcoming style vector.
             block_activation (torch.nn module, optional): Activation function used in the convolutional blocks. Defaults to nn.ReLU().
             batch_norm (bool, optional): Normalize over the batch size. Defaults to False.
             drop_rate (float, optional): Dropout rate for the convolutions. Defaults to None, corresponding to no dropout.
@@ -135,23 +134,34 @@ class Style_Encoder(nn.Module):
         super(Style_Encoder, self).__init__()
         self.logger = get_logger("Content_Encoder")
         # create a list with all channel dimensions throughout the encoder.
-        layers = []
+        conv_layers = []
 
         channel_numbers = [in_channels] + list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels+1)).astype(np.int))
         # get all convolutional blocks with corresponding parameters
         for i in range(len(channel_numbers)-1):
+            stride = 1 if i == 0 else 2
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
             # add convolution
-            layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias))
-        layers.append(nn.Flatten())
+            conv_layers.append(Conv2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias, stride=stride))
+            conv_layers.append(nn.InstanceNorm2d(out_ch))
         # save all blocks to the class instance
-        self.main = nn.Sequential(*layers)
-        self.logger.debug("Content Encoder channel sizes: {}".format(channel_numbers))
+        self.conv_layers = nn.Sequential(*conv_layers)
+        self.logger.debug("Style Encoder channel sizes (convolutional part): {}".format(channel_numbers))
+        # get linear blocks with corresponding parameters
+        lin_layers = []
+        for i in range(2):
+            lin_layers.append(LinearBlock(max_channels, max_channels, block_activation, batch_norm, drop_rate, bias))
+        lin_layers.append(LinearBlock(max_channels, style_dim, None, False, None, True))
+        self.lin_layers = nn.Sequential(*lin_layers)
 
     def forward(self, x):
         """This function predicts the style."""
-        return self.main(x)
+        x = self.conv_layers(x)
+        x = torch.mean(x, dim=[2,3])
+        x = self.lin_layers(x)
+        x = l2_normalize(x)
+        return x
 
     
 class Decoder(nn.Module):
@@ -161,7 +171,8 @@ class Decoder(nn.Module):
                  min_channels,
                  max_channels,
                  out_channels,
-                 num_extra_conv=0,
+                 style_dim,
+                 num_res_blocks=9,
                  block_activation=nn.ReLU(),
                  final_activation=nn.Tanh(),
                  batch_norm=False,
@@ -173,6 +184,8 @@ class Decoder(nn.Module):
             min_channels (int): Channel dimension before the last convolution is applied.
             max_channels (int): Channel dimension after the first convolution is applied. The channel dimension is cut in half after every convolutional block.
             out_channels (int): Channel dimension of the output image.
+            style_dim (int): Dimension of the style vector.
+            num_res_blocks (int): Number of residual blocks.
             block_activation (torch.nn module, optional): Activation function used in the convolutional blocks. Defaults to nn.ReLU().
             final_activation (torch.nn module, optional): Activation function used in the last convolution for the output image. Defaults to nn.Tanh().
             batch_norm (bool, optional): Normalize over the batch size. Defaults to False.
@@ -182,25 +195,34 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.logger = get_logger("Decoder")
         # create a list with all channel dimensions throughout the decoder.
-        layers = []
+        res_layers = []
+        for i in range(num_res_blocks):
+            res_layers.append(StyleResidualBlock(max_channels, style_dim))
+        self.res_layers = res_layers
+        self.logger.debug("Added {} residual blocks.".format(num_res_blocks))
+
+        conv_layers = []
         channel_numbers = list(2 ** np.arange(np.log2(min_channels), np.log2(max_channels+1)).astype(np.int)[::-1]) + [out_channels]
         stride = 2
         padding = 1
         # get all convolutional blocks with corresponding parameters
-        for i in range(len(channel_numbers)-1):
-            activation = block_activation if i != len(channel_numbers)-1 else final_activation
+        for i in range(len(channel_numbers)-2):
             in_ch = channel_numbers[i]
             out_ch = channel_numbers[i+1]
-            layers.append(Transpose2dBlock(in_ch, out_ch, activation, batch_norm, drop_rate, bias, stride=stride, padding=padding))
-            for i in range(num_extra_conv):
-                layers.append(ExtraConvBlock(out_ch, block_activation, batch_norm, drop_rate, bias))
+            conv_layers.append(Transpose2dBlock(in_ch, out_ch, block_activation, batch_norm, drop_rate, bias, stride=stride, padding=padding))
+            conv_layers.append(nn.InstanceNorm2d(out_ch))
         # save all blocks to the class instance
-        self.main = nn.Sequential(*layers)
+        conv_layers.append(Conv2dBlock(min_channels, out_channels, final_activation, stride=1))
+
+        self.conv_layers = nn.Sequential(*conv_layers)
         self.logger.debug("Decoder channel sizes: {}".format(channel_numbers))
 
-    def forward(self, x):
+    def forward(self, x, style):
         """This function creates reconstructed image from style and content."""
-        return self.main(x)
+        for layer in self.res_layers:
+            x = layer(x, style)
+        x = self.conv_layers(x)
+        return x
 
 class Discriminator(nn.Module):
     """This is the discriminator of the style transfer model"""
@@ -223,6 +245,8 @@ class Discriminator(nn.Module):
             out_size (int): Size of the output image.
             min_channels (int): Channel dimension before the last convolution is applied.
             max_channels (int): Channel dimension after the first convolution is applied. The channel dimension is cut in half after every convolutional block.
+            num_classes(): Number of classes
+            lin_layer_size (int): Size of last linear layer in the Discriminator
             block_activation (torch.nn module, optional): Activation function of the convolution. Defaults to nn.LeakyReLU().
             batch_norm (bool, optional): Normalize over the batch size. Defaults to False.
             drop_rate (float, optional): Dropout rate for the convolutions. Defaults to None.
@@ -268,15 +292,7 @@ class Style_Transfer_Model_edflow(Style_Transfer_Model):
         """This is the constructor for the full style transfer model with costum style and content encoder and decoder.
 
         Args:
-            min_channels (int): Channel dimension after the first convolution is applied.
-            max_channels (int): Channel dimension is double after every convolutional block up to the value 'max_channels'.
-            in_channels (int): Channel dimension of the input image.
-            out_channels (int): Channel dimension of the output image.
-            block_activation (torch.nn module, optional): Activation function used in the convolutional blocks. Defaults to nn.ReLU().
-            final_activation (torch.nn module, optional): Activation function used in the last convolution for the output image. Defaults to nn.Tanh().            
-            batch_norm (bool, optional): Normalize over the batch size. Defaults to False.
-            drop_rate (float, optional): Dropout rate for the convolutions. Defaults to None, corresponding to no dropout.
-            bias (bool, optional): If the convolutions use a bias. Defaults to True.
+            config (dict): Config of describing the network architecture.
         """
 
         min_channels = config["model_config"]["min_channels"]
@@ -285,7 +301,8 @@ class Style_Transfer_Model_edflow(Style_Transfer_Model):
         out_channels = config["model_config"]["out_channels"]
         in_size = config["model_config"]["in_size"]
         num_classes = config["model_config"]["num_classes"]
-        num_extra_conv = config["model_config"]["num_extra_conv"]
+        style_dim = config["model_config"]["style_dim"]
+        num_res_blocks = config["model_config"]["num_res_blocks"]
         lin_layer_size = config["model_config"]["lin_layer_size"]
         block_activation=nn.ReLU()
         final_activation=nn.Tanh()
@@ -299,7 +316,8 @@ class Style_Transfer_Model_edflow(Style_Transfer_Model):
                                                         out_channels,
                                                         in_size,
                                                         num_classes,
-                                                        num_extra_conv,
+                                                        style_dim,
+                                                        num_res_blocks,
                                                         lin_layer_size,
                                                         block_activation,
                                                         final_activation,
@@ -308,4 +326,10 @@ class Style_Transfer_Model_edflow(Style_Transfer_Model):
                                                         bias)
 
 
+def test():
+    inp = torch.ones((2,3,64,64))
+    model = Style_Transfer_Model(4, 16, 3,3,64,4,10,3)
+    out = model(inp,inp)
+    print(out.shape)
 
+test()

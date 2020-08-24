@@ -17,20 +17,6 @@ def style_mean_std(s, epsilon=1e-5):
     
     return mean, std
 
-def conditional_intance_normalization(cont, mean, std):
-    """Renormalize content with certain mean and standard deviation
-
-    Args:
-        cont (torch.Tensor): content of 2 images, shape (N=2, C, H, W)
-        mean (torch.Tensor): mean of style vector of 2 images, shape (N=2, 1, 1, 1)
-        std (torch.Tensor): standard deviation of style vector of 2 images, shape (N=2, 1, 1, 1)
-
-    Returns:
-        torch.Tensor: normalized content in every combination
-    """
-    cs = []
-    for m, s in zip(mean, std):
-        for c in cont:
-            cs.append(c * m / s)
-    cs = torch.stack(cs)
-    return cs
+def l2_normalize(x):
+    x = x/torch.sqrt(torch.sum(x**2, dim=-1))[...,None]
+    return x
