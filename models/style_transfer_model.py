@@ -229,7 +229,7 @@ class Decoder(nn.Module):
         self.res7 = nn.Identity()
         self.res8 = nn.Identity()
         self.res9 = nn.Identity()
-        return self.res1, self.res2, self.res3, self.res4, self.res5, self.res6, self.res7, self.res8, self.res9
+        return [self.res1, self.res2, self.res3, self.res4, self.res5, self.res6, self.res7, self.res8, self.res9]
 
     def forward(self, x, style):
         """This function creates reconstructed image from style and content."""
