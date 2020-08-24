@@ -195,12 +195,10 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.logger = get_logger("Decoder")
         # create a list with all channel dimensions throughout the decoder.
-        res_layers = self.initialize_res_layers()
-
+        res_layers = []
         for i in range(num_res_blocks):
-            res_layers[i] = StyleResidualBlock(max_channels, style_dim)
-        self.res_layers = res_layers
-        self.num_res_blocks = num_res_blocks
+            res_layers.append(StyleResidualBlock(max_channels, style_dim))
+        self.res_layers = nn.Sequential(*res_layers)
         self.logger.debug("Added {} residual blocks.".format(num_res_blocks))
 
         conv_layers = []
@@ -233,8 +231,7 @@ class Decoder(nn.Module):
 
     def forward(self, x, style):
         """This function creates reconstructed image from style and content."""
-        for i in range(self.num_res_blocks): 
-            x = self.res_layers[i](x, style)
+        x = self.res_layers([x, style])
         x = self.conv_layers(x)
         return x
 
