@@ -66,7 +66,9 @@ class Style_Transfer_Model(nn.Module):
         assert (x.shape[0] == 2 & y.shape[0] == 2)
         self.c = self.c_enc(x)
         self.s = self.s_enc(y)
-        return self.dec(self.c, self.s)
+        s = torch.stack([self.s[0], self.s[0], self.s[1], self.s[1]])
+        c = torch.cat([self.c, self.c])
+        return self.dec(c, s)
 
 class Content_Encoder(nn.Module):
     def __init__(self,
@@ -196,8 +198,12 @@ class Decoder(nn.Module):
         self.logger = get_logger("Decoder")
         # create a list with all channel dimensions throughout the decoder.
         res_layers = []
-        for i in range(num_res_blocks):
-            res_layers.append(StyleResidualBlock(max_channels, style_dim))
+        self.res1 = StyleResidualBlock(max_channels, style_dim)    
+        self.res2 = StyleResidualBlock(max_channels, style_dim)
+        self.res3 = StyleResidualBlock(max_channels, style_dim)
+        self.res4 = StyleResidualBlock(max_channels, style_dim)
+        self.res5 = StyleResidualBlock(max_channels, style_dim)
+        self.res6 = StyleResidualBlock(max_channels, style_dim)    
         self.res_layers = nn.Sequential(*res_layers)
         self.logger.debug("Added {} residual blocks.".format(num_res_blocks))
 
@@ -231,7 +237,12 @@ class Decoder(nn.Module):
 
     def forward(self, x, style):
         """This function creates reconstructed image from style and content."""
-        x = self.res_layers(torch.stack([x, style]))
+        x = self.res1(x, style)
+        x = self.res2(x, style)
+        x = self.res3(x, style)
+        x = self.res4(x, style)
+        x = self.res5(x, style)
+        x = self.res6(x, style)
         x = self.conv_layers(x)
         return x
 

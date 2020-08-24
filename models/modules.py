@@ -92,9 +92,8 @@ class StyleResidualBlock(nn.Module):
         
         self.act = Activation
 
-    def forward(self, x_and_style):
-        x , style = x_and_style
+    def forward(self, x, style):
         y = self.act(self.cond_inst_norm1(self.conv1(x), style))
         y = self.act(self.cond_inst_norm2(self.conv2(y), style))
 
-        return torch.stack([x + y, style])
+        return x + y, style
