@@ -97,4 +97,4 @@ class StyleResidualBlock(nn.Module):
         y = self.act(self.cond_inst_norm1(self.conv1(x), style))
         y = self.act(self.cond_inst_norm2(self.conv2(y), style))
 
-        return [x + y, style]
+        return torch.stack([x + y, style])

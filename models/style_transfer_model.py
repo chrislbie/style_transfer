@@ -231,7 +231,7 @@ class Decoder(nn.Module):
 
     def forward(self, x, style):
         """This function creates reconstructed image from style and content."""
-        x = self.res_layers([x, style])
+        x = self.res_layers(torch.stack([x, style]))
         x = self.conv_layers(x)
         return x
 
